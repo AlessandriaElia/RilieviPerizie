@@ -122,7 +122,7 @@ $(document).ready(function () {
     // Funzione per creare il contenuto del popup
     function createPopupContent(perizia) {
         const { codice_perizia, descrizione, fotografie } = perizia;
-
+    
         let content = `
         <div>
             <h4>Perizia: ${codice_perizia}</h4>
@@ -130,17 +130,17 @@ $(document).ready(function () {
             <textarea id="descrizione" style="width: 100%; margin-bottom: 10px;">${descrizione}</textarea>
             <h5>Fotografie:</h5>
             <ul>
-    `;
-
+        `;
+    
         fotografie.forEach((foto, index) => {
             content += `
             <li>
-                <img src="${foto.url}" alt="Foto" style="width: 100px; height: auto;" />
+                <img src="${foto.base64}" alt="Foto" style="width: 100px; height: auto;" />
                 <textarea id="commento-${index}" style="width: 100%; margin-top: 5px;">${foto.commento}</textarea>
             </li>
-        `;
+            `;
         });
-
+    
         content += `
             </ul>
             <button id="salvaModifiche" 
@@ -149,8 +149,8 @@ $(document).ready(function () {
                 Salva Modifiche
             </button>
         </div>
-    `;
-
+        `;
+    
         return content;
     }
     $(document).on("click", "#salvaModifiche", async function () {

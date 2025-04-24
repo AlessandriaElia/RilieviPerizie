@@ -321,8 +321,8 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
             operatore_id: new mongodb_1.ObjectId(decoded.id), // ID dell'operatore dal token
             data_ora_perizia: new Date(dataOra), // Data e ora in formato Date
             coordinate: {
-                latitudine: parseFloat(coordinate.latitudine),
-                longitudine: parseFloat(coordinate.longitudine),
+                latitudine: parseFloat(coordinate.latitudine), // Converti in double
+                longitudine: parseFloat(coordinate.longitudine), // Converti in double
             },
             descrizione,
             fotografie,
