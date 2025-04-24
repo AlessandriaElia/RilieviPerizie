@@ -293,6 +293,44 @@ app.post("/api/cambia-password", (req, res) => __awaiter(void 0, void 0, void 0,
         return res.status(500).send("Errore interno del server.");
     }
 }));
+// POST /api/upload-perizia
+app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { descrizione, foto, coordinate, dataOra, codiceOperatore } = req.body;
+    const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(" ")[1];
+    if (!descrizione || !foto || foto.length === 0 || !coordinate || !dataOra || !codiceOperatore || !token) {
+        return res.status(400).send("Tutti i campi sono obbligatori.");
+    }
+    try {
+        // Decodifica il token per verificare l'autenticità
+        const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
+        // Connessione al database
+        const client = new mongodb_1.MongoClient(CONNECTION_STRING);
+        yield client.connect();
+        const collection = client.db(DBNAME).collection("perizie");
+        // Crea il documento della perizia
+        const perizia = {
+            operatore_id: new mongodb_1.ObjectId(decoded.id), // ID dell'operatore dal token
+            descrizione,
+            foto,
+            coordinate,
+            dataOra: new Date(dataOra), // Converte la data in formato Date
+            codiceOperatore, // Codice operatore dal frontend
+        };
+        // Salva la perizia nel database
+        const result = yield collection.insertOne(perizia);
+        if (result.insertedId) {
+            return res.status(200).json({ message: "Perizia caricata con successo.", periziaId: result.insertedId });
+        }
+        else {
+            return res.status(500).send("Errore durante il salvataggio della perizia.");
+        }
+    }
+    catch (err) {
+        console.error("Errore durante l'upload della perizia:", err);
+        return res.status(500).send("Errore interno del server.");
+    }
+}));
 function generaPasswordCasuale(length = 10) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let password = "";
