@@ -258,28 +258,44 @@ app.put("/api/updatePerizia/:codice_perizia", async (req: Request, res: Response
   const client = new MongoClient(CONNECTION_STRING);
 
   if (!descrizione || !fotografie || !Array.isArray(fotografie)) {
-      return res.status(400).send("Descrizione e fotografie sono obbligatorie.");
+    return res.status(400).send("Descrizione e fotografie sono obbligatorie.");
   }
 
   try {
-      await client.connect();
-      const collection = client.db(DBNAME).collection("perizie");
+    await client.connect();
+    const collection = client.db(DBNAME).collection("perizie");
 
-      const result = await collection.updateOne(
-          { codice_perizia: codicePerizia },
-          { $set: { descrizione, fotografie } }
-      );
+    // Recupera la perizia esistente
+    const existingPerizia = await collection.findOne({ codice_perizia: codicePerizia });
+    if (!existingPerizia) {
+      return res.status(404).send("Perizia non trovata.");
+    }
 
-      if (result.matchedCount === 0) {
-          return res.status(404).send("Perizia non trovata.");
-      }
+    // Combina i dati esistenti con quelli nuovi
+    const updatedFotografie = fotografie.map((foto: { base64?: string; commento: string }, index: number) => {
+      const existingFoto = existingPerizia.fotografie[index];
+      return {
+        base64: foto.base64 || (existingFoto ? existingFoto.base64 : null),
+        commento: foto.commento,
+      };
+    });
 
-      res.status(200).send("Perizia aggiornata con successo.");
+    // Aggiorna la perizia
+    const result = await collection.updateOne(
+      { codice_perizia: codicePerizia },
+      { $set: { descrizione, fotografie: updatedFotografie } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send("Perizia non trovata.");
+    }
+
+    res.status(200).send("Perizia aggiornata con successo.");
   } catch (err) {
-      console.error("Errore durante l'aggiornamento della perizia:", err);
-      res.status(500).send("Errore interno del server.");
+    console.error("Errore durante l'aggiornamento della perizia:", err);
+    res.status(500).send("Errore interno del server.");
   } finally {
-      await client.close();
+    await client.close();
   }
 });
 

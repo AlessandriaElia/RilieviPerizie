@@ -249,7 +249,21 @@ app.put("/api/updatePerizia/:codice_perizia", (req, res) => __awaiter(void 0, vo
     try {
         yield client.connect();
         const collection = client.db(DBNAME).collection("perizie");
-        const result = yield collection.updateOne({ codice_perizia: codicePerizia }, { $set: { descrizione, fotografie } });
+        // Recupera la perizia esistente
+        const existingPerizia = yield collection.findOne({ codice_perizia: codicePerizia });
+        if (!existingPerizia) {
+            return res.status(404).send("Perizia non trovata.");
+        }
+        // Combina i dati esistenti con quelli nuovi
+        const updatedFotografie = fotografie.map((foto, index) => {
+            const existingFoto = existingPerizia.fotografie[index];
+            return {
+                base64: foto.base64 || (existingFoto ? existingFoto.base64 : null),
+                commento: foto.commento,
+            };
+        });
+        // Aggiorna la perizia
+        const result = yield collection.updateOne({ codice_perizia: codicePerizia }, { $set: { descrizione, fotografie: updatedFotografie } });
         if (result.matchedCount === 0) {
             return res.status(404).send("Perizia non trovata.");
         }
