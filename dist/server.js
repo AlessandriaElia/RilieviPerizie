@@ -282,10 +282,10 @@ app.post("/api/cambia-password", (req, res) => __awaiter(void 0, void 0, void 0,
         const hashedPassword = yield bcryptjs_1.default.hash(nuovaPassword, 10);
         const result = yield collection.updateOne({ _id: new mongodb_1.ObjectId(decoded.id) }, { $set: { password: hashedPassword, primo_accesso: false } });
         if (result.modifiedCount === 1) {
-            return res.status(200).send("Password aggiornata con successo.");
+            return res.status(200).json({ message: "Password aggiornata con successo." });
         }
         else {
-            return res.status(404).send("Utente non trovato.");
+            return res.status(404).json({ message: "Utente non trovato." });
         }
     }
     catch (err) {

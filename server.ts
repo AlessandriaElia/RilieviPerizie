@@ -311,10 +311,10 @@ app.post("/api/cambia-password", async (req: Request, res: Response) => {
       );
 
       if (result.modifiedCount === 1) {
-          return res.status(200).send("Password aggiornata con successo.");
-      } else {
-          return res.status(404).send("Utente non trovato.");
-      }
+        return res.status(200).json({ message: "Password aggiornata con successo." });
+    } else {
+        return res.status(404).json({ message: "Utente non trovato." });
+    }
   } catch (err) {
       console.error("Errore durante il cambio della password:", err);
       return res.status(500).send("Errore interno del server.");
