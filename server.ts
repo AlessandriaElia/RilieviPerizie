@@ -1,0 +1,350 @@
+"use strict";
+
+// import
+import http from "http";
+import https from "https";
+import fs from "fs";
+import express, { Request, Response, NextFunction } from "express";
+import dotenv from "dotenv";
+import { MongoClient, ObjectId } from "mongodb";
+import cors from "cors"; 
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = "supersegreto";
+
+// config
+dotenv.config({ path: ".env" });
+const app = express();
+const HTTP_PORT = process.env.PORT || 3000;
+const DBNAME = process.env.DBNAME;
+const CONNECTION_STRING = process.env.MONGODB_URI;
+console.log("Nome del database:", DBNAME);
+
+async function testConnection() {
+  const client = new MongoClient(CONNECTION_STRING);
+  try {
+    await client.connect();
+    console.log("Connessione al database riuscita!");
+    const collection = client.db(DBNAME).collection("utenti");
+    const utenti = await collection.find({}).toArray();
+    console.log("Utenti trovati:", utenti);
+  } catch (err) {
+    console.error("Errore di connessione:", err);
+  } finally {
+    await client.close();
+  }
+}
+
+testConnection();
+
+const whiteList = ["http://localhost:1337"];
+const corsOptions = {
+  origin: function (origin: any, callback: any) {
+    return callback(null, true);
+  },
+  credentials: true,
+};
+const HTTPS_PORT = 1337;
+const privateKey = fs.readFileSync("keys/private.pem", "utf8");
+const certificate = fs.readFileSync("keys/certificate.crt", "utf8");
+const credentials = { key: privateKey, cert: certificate };
+
+// ********** Avvio ***************
+const httpServer = http.createServer(app);
+httpServer.listen(HTTP_PORT, function () {
+  init();
+  console.log("Server HTTP in ascolto sulla porta " + HTTP_PORT);
+});
+
+let paginaErrore = "";
+function init() {
+  fs.readFile("./static/error.html", function (err, data) {
+    if (!err) paginaErrore = data.toString();
+    else paginaErrore = "<h1>Risorsa non trovata</h1>";
+  });
+}
+
+/* ******** (Sezione 2) Middleware ******** */
+
+app.use("/", function (req, res, next) {
+  console.log("* " + req.method + " * : " + req.originalUrl);
+  next();
+});
+
+app.use("/", express.static("./static"));
+
+app.use("/", express.json({ limit: "20mb" }));
+app.use("/", express.urlencoded({ extended: true, limit: "20mb" }));
+
+app.use("/", cors(corsOptions));
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+/* ******* (Sezione 3) USER ROUTES  ********** */
+
+// GET /api/utenti
+app.get("/api/getUtenti", async (req: Request, res: Response) => {
+  const client = new MongoClient(CONNECTION_STRING);
+  try {
+      await client.connect();
+      const collection = client.db(DBNAME).collection("utenti");
+      const utenti = await collection.find({}).toArray();
+      res.status(200).json(utenti);
+  } catch (err) {
+      console.error("Errore durante il caricamento degli utenti:", err);
+      res.status(500).send("Errore interno del server.");
+  } finally {
+      await client.close();
+  }
+});
+// POST /api/login
+app.post("/api/login", async (req: Request, res: Response) => {
+  const { username, password } = req.body;
+
+  console.log("Dati ricevuti:", { username, password });
+
+  if (!username || !password) {
+    return res.status(400).send("Username e password sono obbligatori.");
+  }
+
+  const client = new MongoClient(CONNECTION_STRING);
+  try {
+    await client.connect();
+    const collection = client.db(DBNAME).collection("utenti");
+
+    const user = await collection.findOne({ username });
+    console.log("Utente trovato:", user);
+
+    if (!user) {
+      return res.status(401).send("Utente non trovato.");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).send("Password errata.");
+    }
+
+    const token = jwt.sign(
+      { id: user._id, nome: user.nome, cognome: user.cognome, email: user.email, ruolo: user.ruolo },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    if (user.ruolo === "ADMIN") {
+      return res.status(200).json({
+        token,
+        message: "Accesso effettuato con successo.",
+        redirect: "/dashboard.html",
+      });
+    } else if (user.ruolo === "USER") {
+      if (user.primo_accesso) {
+        return res.status(200).json({
+          token,
+          message: "Accesso effettuato con successo. Primo accesso.",
+          primo_accesso: true,
+          redirect: "/cambia-password.html",
+        });
+      } else {
+        return res.status(200).json({
+          token,
+          message: "Accesso effettuato con successo.",
+          primo_accesso: false,
+          redirect: "/dashboard-utente.html",
+        });
+      }
+    } else {
+      return res.status(403).send("Ruolo non riconosciuto.");
+    }
+  } catch (err) {
+    console.error("Errore durante il login:", err);
+    return res.status(500).send("Errore interno del server.");
+  } finally {
+    await client.close();
+  }
+});
+// POST /api/utenti
+app.post("/api/createUser", async (req: Request, res: Response) => {
+  const { nome, cognome, email, telefono, ruolo } = req.body;
+
+  if (!nome || !cognome || !email || !telefono || !ruolo) {
+      return res.status(400).send("Tutti i campi sono obbligatori.");
+  }
+
+  const client = new MongoClient(CONNECTION_STRING);
+  try {
+      await client.connect();
+      const collection = client.db(DBNAME).collection("utenti");
+
+      const username = `${nome.toLowerCase()}.${cognome.toLowerCase()}`;
+
+      const existingUser = await collection.findOne({ email });
+      if (existingUser) {
+          console.log("Utente già esistente:", existingUser);
+          return res.status(409).json({ message: "Utente già esistente." });
+      }
+
+      const initialPassword = "password";
+
+      const hashedPassword = await bcrypt.hash(initialPassword, 10);
+
+      const newUser = {
+          nome,
+          cognome,
+          username,
+          email,
+          telefono,
+          password: hashedPassword,
+          ruolo,
+          primo_accesso: true,
+          data_creazione: new Date().toISOString(),
+      };
+
+      const result = await collection.insertOne(newUser);
+
+      if (result.acknowledged) {
+          console.log("Utente creato con successo:", newUser);
+          return res.status(201).json({
+              message: "Utente creato con successo.",
+              user: { nome, cognome, username, email, telefono, ruolo },
+          });
+      } else {
+          console.error("Errore durante l'inserimento dell'utente.");
+          return res.status(500).json({ message: "Errore durante la creazione dell'utente." });
+      }
+  } catch (err) {
+      console.error("Errore durante la creazione dell'utente:", err);
+      return res.status(500).json({ message: "Errore interno del server." });
+  } finally {
+      await client.close();
+  }
+});
+
+// GET /api/getPerizie
+app.get("/api/getPerizie", async (req: Request, res: Response) => {
+  const userId = req.query.userId as string;
+  const client = new MongoClient(CONNECTION_STRING);
+
+  try {
+      await client.connect();
+      const collection = client.db(DBNAME).collection("perizie");
+
+      let query = {};
+      if (userId && userId !== "ALL") {
+          if (!ObjectId.isValid(userId)) {
+              return res.status(400).send("ID utente non valido.");
+          }
+          query = { operatore_id: new ObjectId(userId) };
+      }
+
+      const perizie = await collection.find(query).toArray();
+      res.status(200).json(perizie); 
+  } catch (err) {
+      console.error("Errore durante il caricamento delle perizie:", err);
+      res.status(500).send("Errore interno del server.");
+  } finally {
+      await client.close();
+  }
+});
+
+// PUT /api/updatePerizia/:codice_perizia
+app.put("/api/updatePerizia/:codice_perizia", async (req: Request, res: Response) => {
+  const codicePerizia = req.params.codice_perizia;
+  const { descrizione, fotografie } = req.body;
+  const client = new MongoClient(CONNECTION_STRING);
+
+  if (!descrizione || !fotografie || !Array.isArray(fotografie)) {
+      return res.status(400).send("Descrizione e fotografie sono obbligatorie.");
+  }
+
+  try {
+      await client.connect();
+      const collection = client.db(DBNAME).collection("perizie");
+
+      const result = await collection.updateOne(
+          { codice_perizia: codicePerizia },
+          { $set: { descrizione, fotografie } }
+      );
+
+      if (result.matchedCount === 0) {
+          return res.status(404).send("Perizia non trovata.");
+      }
+
+      res.status(200).send("Perizia aggiornata con successo.");
+  } catch (err) {
+      console.error("Errore durante l'aggiornamento della perizia:", err);
+      res.status(500).send("Errore interno del server.");
+  } finally {
+      await client.close();
+  }
+});
+
+// POST /api/cambia-password
+app.post("/api/cambia-password", async (req: Request, res: Response) => {
+  const { nuovaPassword } = req.body;
+  const token = req.headers.authorization?.split(" ")[1];
+
+  console.log("Token ricevuto:", token); 
+  console.log("Nuova password ricevuta:", nuovaPassword); 
+
+  if (!nuovaPassword || !token) {
+      return res.status(400).send("Tutti i campi sono obbligatori.");
+  }
+
+  try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+      console.log("Token decodificato:", decoded); 
+
+      const client = new MongoClient(CONNECTION_STRING);
+      await client.connect();
+      const collection = client.db(DBNAME).collection("utenti");
+
+      const hashedPassword = await bcrypt.hash(nuovaPassword, 10);
+
+      const result = await collection.updateOne(
+          { _id: new ObjectId(decoded.id) },
+          { $set: { password: hashedPassword, primo_accesso: false } }
+      );
+
+      if (result.modifiedCount === 1) {
+          return res.status(200).send("Password aggiornata con successo.");
+      } else {
+          return res.status(404).send("Utente non trovato.");
+      }
+  } catch (err) {
+      console.error("Errore durante il cambio della password:", err);
+      return res.status(500).send("Errore interno del server.");
+  }
+});
+
+function generaPasswordCasuale(length: number = 10): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
+bcrypt.hash("adminpassword", 10, (err, hash) => {
+  if (err) {
+    console.error("Errore durante l'hashing:", err);
+  } else {
+    console.log("Password hashata:", hash);
+  }
+});
+
+/* ******** (Sezione 4) DEFAULT ROUTE  ********* */
+
+app.use("/", function (req: any, res: any, next: NextFunction) {
+  res.status(404);
+  if (req.originalUrl.startsWith("/api/")) {
+    res.send("Risorsa non trovata");
+  } else res.send(paginaErrore);
+});
+
+app.use("/", (err: any, req: any, res: any, next: any) => {
+  res.status(500);
+  res.send("ERRR: " + err.message);
+  console.log("SERVER ERROR " + err.stack);
+});
