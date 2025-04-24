@@ -11,7 +11,7 @@ import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = "supersegreto";
+
 
 // config
 dotenv.config({ path: ".env" });
@@ -19,6 +19,8 @@ const app = express();
 const HTTP_PORT = process.env.PORT || 3000;
 const DBNAME = process.env.DBNAME;
 const CONNECTION_STRING = process.env.MONGODB_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
+
 console.log("Nome del database:", DBNAME);
 
 async function testConnection() {
@@ -46,8 +48,10 @@ const corsOptions = {
   credentials: true,
 };
 const HTTPS_PORT = 1337;
-const privateKey = fs.readFileSync("keys/private.pem", "utf8");
-const certificate = fs.readFileSync("keys/certificate.crt", "utf8");
+const chiavePrivata = process.env.PRIVATE_KEY;
+const privateKey = chiavePrivata?.replace(/\\n/g, "\n");
+const certificato = process.env.CERTIFICATE;
+const certificate = certificato?.replace(/\\n/g, "\n");
 const credentials = { key: privateKey, cert: certificate };
 
 // ********** Avvio ***************

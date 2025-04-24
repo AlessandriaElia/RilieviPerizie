@@ -21,13 +21,13 @@ const mongodb_1 = require("mongodb");
 const cors_1 = __importDefault(require("cors"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const JWT_SECRET = "supersegreto";
 // config
 dotenv_1.default.config({ path: ".env" });
 const app = (0, express_1.default)();
 const HTTP_PORT = process.env.PORT || 3000;
 const DBNAME = process.env.DBNAME;
 const CONNECTION_STRING = process.env.MONGODB_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
 console.log("Nome del database:", DBNAME);
 function testConnection() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -56,8 +56,10 @@ const corsOptions = {
     credentials: true,
 };
 const HTTPS_PORT = 1337;
-const privateKey = fs_1.default.readFileSync("keys/private.pem", "utf8");
-const certificate = fs_1.default.readFileSync("keys/certificate.crt", "utf8");
+const chiavePrivata = process.env.PRIVATE_KEY;
+const privateKey = chiavePrivata === null || chiavePrivata === void 0 ? void 0 : chiavePrivata.replace(/\\n/g, "\n");
+const certificato = process.env.CERTIFICATE;
+const certificate = certificato === null || certificato === void 0 ? void 0 : certificato.replace(/\\n/g, "\n");
 const credentials = { key: privateKey, cert: certificate };
 // ********** Avvio ***************
 const httpServer = http_1.default.createServer(app);
