@@ -308,14 +308,24 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
         const client = new mongodb_1.MongoClient(CONNECTION_STRING);
         yield client.connect();
         const collection = client.db(DBNAME).collection("perizie");
+        // Genera un codice perizia univoco
+        const codicePerizia = `PRZ-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
+        // Trasforma le foto in un array con Base64 e commenti
+        const fotografie = foto.map((f) => ({
+            base64: f.base64,
+            commento: f.commento,
+        }));
         // Crea il documento della perizia
         const perizia = {
+            codice_perizia: codicePerizia,
             operatore_id: new mongodb_1.ObjectId(decoded.id), // ID dell'operatore dal token
+            data_ora_perizia: new Date(dataOra), // Data e ora in formato Date
+            coordinate: {
+                latitudine: parseFloat(coordinate.latitudine),
+                longitudine: parseFloat(coordinate.longitudine),
+            },
             descrizione,
-            foto,
-            coordinate,
-            dataOra: new Date(dataOra), // Converte la data in formato Date
-            codiceOperatore, // Codice operatore dal frontend
+            fotografie,
         };
         // Salva la perizia nel database
         const result = yield collection.insertOne(perizia);

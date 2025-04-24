@@ -338,14 +338,26 @@ app.post("/api/upload-perizia", async (req: Request, res: Response) => {
     await client.connect();
     const collection = client.db(DBNAME).collection("perizie");
 
+    // Genera un codice perizia univoco
+    const codicePerizia = `PRZ-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
+
+    // Trasforma le foto in un array con Base64 e commenti
+    const fotografie = foto.map((f: { base64: string; commento: string }) => ({
+      base64: f.base64,
+      commento: f.commento,
+    }));
+
     // Crea il documento della perizia
     const perizia = {
+      codice_perizia: codicePerizia,
       operatore_id: new ObjectId(decoded.id), // ID dell'operatore dal token
+      data_ora_perizia: new Date(dataOra), // Data e ora in formato Date
+      coordinate: {
+        latitudine: parseFloat(coordinate.latitudine),
+        longitudine: parseFloat(coordinate.longitudine),
+      },
       descrizione,
-      foto,
-      coordinate,
-      dataOra: new Date(dataOra), // Converte la data in formato Date
-      codiceOperatore, // Codice operatore dal frontend
+      fotografie,
     };
 
     // Salva la perizia nel database
@@ -361,7 +373,6 @@ app.post("/api/upload-perizia", async (req: Request, res: Response) => {
     return res.status(500).send("Errore interno del server.");
   }
 });
-
 function generaPasswordCasuale(length: number = 10): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let password = "";
