@@ -270,18 +270,16 @@ app.put("/api/updatePerizia/:codice_perizia", async (req: Request, res: Response
     await client.connect();
     const collection = client.db(DBNAME).collection("perizie");
 
-    // Recupera la perizia esistente
     const existingPerizia = await collection.findOne({ codice_perizia: codicePerizia });
     if (!existingPerizia) {
       return res.status(404).send("Perizia non trovata.");
     }
 
-    // Combina i dati esistenti con quelli nuovi
     const updatedFotografie = fotografie.map((foto: { url: string; commento: string }, index: number) => {
       const existingFoto = existingPerizia.fotografie[index];
       return {
-        url: foto.url || (existingFoto ? existingFoto.url : null), // Mantieni l'URL esistente se non fornito
-        commento: foto.commento || (existingFoto ? existingFoto.commento : ""), // Mantieni il commento esistente se non fornito
+        url: foto.url || (existingFoto ? existingFoto.url : null), 
+        commento: foto.commento || (existingFoto ? existingFoto.commento : ""), 
       };
     });
 
@@ -317,7 +315,6 @@ app.post("/api/cambia-password", async (req: Request, res: Response) => {
   }
 
   try {
-    // Decodifica il token per ottenere l'ID dell'utente
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     console.log("Token decodificato:", decoded);
 
@@ -325,17 +322,14 @@ app.post("/api/cambia-password", async (req: Request, res: Response) => {
     await client.connect();
     const collection = client.db(DBNAME).collection("utenti");
 
-    // Recupera l'utente dal database
     const user = await collection.findOne({ _id: new ObjectId(decoded.id) });
     if (!user) {
       return res.status(404).json({ message: "Utente non trovato." });
     }
 
-    // Se l'utente è al primo accesso, bypassa il controllo della password attuale
     if (user.primo_accesso) {
       console.log("Primo accesso rilevato, bypassando il controllo della password attuale.");
     } else {
-      // Verifica che la password attuale sia corretta
       if (!currentPassword) {
         return res.status(400).json({ message: "La password attuale è obbligatoria." });
       }
@@ -346,15 +340,12 @@ app.post("/api/cambia-password", async (req: Request, res: Response) => {
       }
     }
 
-    // Validazione della nuova password (esempio: lunghezza minima di 8 caratteri)
     if (nuovaPassword.length < 8) {
       return res.status(400).json({ message: "La nuova password deve contenere almeno 8 caratteri." });
     }
 
-    // Hash della nuova password
     const hashedPassword = await bcrypt.hash(nuovaPassword, 10);
 
-    // Aggiorna la password nel database
     const result = await collection.updateOne(
       { _id: new ObjectId(decoded.id) },
       { $set: { password: hashedPassword, primo_accesso: false } }
@@ -375,37 +366,31 @@ app.post("/api/upload-perizia", async (req: Request, res: Response) => {
   const { descrizione, foto, coordinate, dataOra, codiceOperatore } = req.body;
   const token = req.headers.authorization?.split(" ")[1];
 
-  // Verifica che tutti i campi obbligatori siano presenti
   if (!descrizione || !foto || foto.length === 0 || !coordinate || !dataOra || !codiceOperatore || !token) {
     return res.status(400).send("Tutti i campi sono obbligatori.");
   }
 
   try {
-    // Decodifica il token per verificare l'autenticità
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
 
-    // Connessione al database
     const client = new MongoClient(CONNECTION_STRING);
     await client.connect();
     const collection = client.db(DBNAME).collection("perizie");
 
-    // Genera un codice perizia univoco
     const codicePerizia = `PRZ-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
 
-    // Prepara il documento della perizia
     const perizia = {
       codice_perizia: codicePerizia,
-      operatore_id: new ObjectId(decoded.id), // ID dell'operatore dal token
-      data_ora_perizia: new Date(dataOra), // Data e ora in formato Date
+      operatore_id: new ObjectId(decoded.id),
+      data_ora_perizia: new Date(dataOra), 
       coordinate: {
-        latitudine: parseFloat(coordinate.latitudine), // Converti in double
-        longitudine: parseFloat(coordinate.longitudine), // Converti in double
+        latitudine: parseFloat(coordinate.latitudine), 
+        longitudine: parseFloat(coordinate.longitudine), 
       },
       descrizione,
-      fotografie: foto, // Gli URL e i commenti delle immagini vengono direttamente dal frontend
+      fotografie: foto, 
     };
 
-    // Salva la perizia nel database
     const result = await collection.insertOne(perizia);
 
     if (result.insertedId) {

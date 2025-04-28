@@ -7,7 +7,7 @@ const requestInterceptor = function (request) {
     }
     const authToken = localStorage.getItem("authToken");
     if (authToken) {
-        console.log("Token inviato:", authToken); // Debug
+        console.log("Token inviato:", authToken); 
         request.headers.set("Authorization", `Bearer ${authToken}`);
     } else {
         console.warn("Token non trovato nel localStorage.");

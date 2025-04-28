@@ -225,7 +225,6 @@ function createPopupContent(perizia) {
         }
     });
 
-    // Inizializza la mappa
     initializeMap();
 
     // Gestione del form "Crea Utente"

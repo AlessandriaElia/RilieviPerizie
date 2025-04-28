@@ -232,7 +232,7 @@ app.get("/api/getPerizie", (req, res) => __awaiter(void 0, void 0, void 0, funct
             query = { operatore_id: new mongodb_1.ObjectId(userId) };
         }
         const perizie = yield collection.find(query).toArray();
-        console.log("Perizie inviate al client:", perizie); // Log per debug
+        console.log("Perizie inviate al client:", perizie);
         res.status(200).json(perizie);
     }
     catch (err) {
@@ -254,20 +254,17 @@ app.put("/api/updatePerizia/:codice_perizia", (req, res) => __awaiter(void 0, vo
     try {
         yield client.connect();
         const collection = client.db(DBNAME).collection("perizie");
-        // Recupera la perizia esistente
         const existingPerizia = yield collection.findOne({ codice_perizia: codicePerizia });
         if (!existingPerizia) {
             return res.status(404).send("Perizia non trovata.");
         }
-        // Combina i dati esistenti con quelli nuovi
         const updatedFotografie = fotografie.map((foto, index) => {
             const existingFoto = existingPerizia.fotografie[index];
             return {
-                url: foto.url || (existingFoto ? existingFoto.url : null), // Mantieni l'URL esistente se non fornito
-                commento: foto.commento || (existingFoto ? existingFoto.commento : ""), // Mantieni il commento esistente se non fornito
+                url: foto.url || (existingFoto ? existingFoto.url : null), 
+                commento: foto.commento || (existingFoto ? existingFoto.commento : ""), 
             };
         });
-        // Aggiorna la perizia
         const result = yield collection.updateOne({ codice_perizia: codicePerizia }, { $set: { descrizione, fotografie: updatedFotografie } });
         if (result.matchedCount === 0) {
             return res.status(404).send("Perizia non trovata.");
@@ -293,23 +290,19 @@ app.post("/api/cambia-password", (req, res) => __awaiter(void 0, void 0, void 0,
         return res.status(400).send("Tutti i campi sono obbligatori.");
     }
     try {
-        // Decodifica il token per ottenere l'ID dell'utente
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
         console.log("Token decodificato:", decoded);
         const client = new mongodb_1.MongoClient(CONNECTION_STRING);
         yield client.connect();
         const collection = client.db(DBNAME).collection("utenti");
-        // Recupera l'utente dal database
         const user = yield collection.findOne({ _id: new mongodb_1.ObjectId(decoded.id) });
         if (!user) {
             return res.status(404).json({ message: "Utente non trovato." });
         }
-        // Se l'utente è al primo accesso, bypassa il controllo della password attuale
         if (user.primo_accesso) {
             console.log("Primo accesso rilevato, bypassando il controllo della password attuale.");
         }
         else {
-            // Verifica che la password attuale sia corretta
             if (!currentPassword) {
                 return res.status(400).json({ message: "La password attuale è obbligatoria." });
             }
@@ -318,13 +311,10 @@ app.post("/api/cambia-password", (req, res) => __awaiter(void 0, void 0, void 0,
                 return res.status(401).json({ message: "La password attuale non è corretta." });
             }
         }
-        // Validazione della nuova password (esempio: lunghezza minima di 8 caratteri)
         if (nuovaPassword.length < 8) {
             return res.status(400).json({ message: "La nuova password deve contenere almeno 8 caratteri." });
         }
-        // Hash della nuova password
         const hashedPassword = yield bcryptjs_1.default.hash(nuovaPassword, 10);
-        // Aggiorna la password nel database
         const result = yield collection.updateOne({ _id: new mongodb_1.ObjectId(decoded.id) }, { $set: { password: hashedPassword, primo_accesso: false } });
         if (result.modifiedCount === 1) {
             return res.status(200).json({ message: "Password aggiornata con successo." });
@@ -343,32 +333,26 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
     var _a;
     const { descrizione, foto, coordinate, dataOra, codiceOperatore } = req.body;
     const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(" ")[1];
-    // Verifica che tutti i campi obbligatori siano presenti
     if (!descrizione || !foto || foto.length === 0 || !coordinate || !dataOra || !codiceOperatore || !token) {
         return res.status(400).send("Tutti i campi sono obbligatori.");
     }
     try {
-        // Decodifica il token per verificare l'autenticità
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
-        // Connessione al database
         const client = new mongodb_1.MongoClient(CONNECTION_STRING);
         yield client.connect();
         const collection = client.db(DBNAME).collection("perizie");
-        // Genera un codice perizia univoco
         const codicePerizia = `PRZ-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
-        // Prepara il documento della perizia
         const perizia = {
             codice_perizia: codicePerizia,
-            operatore_id: new mongodb_1.ObjectId(decoded.id), // ID dell'operatore dal token
-            data_ora_perizia: new Date(dataOra), // Data e ora in formato Date
+            operatore_id: new mongodb_1.ObjectId(decoded.id), 
+            data_ora_perizia: new Date(dataOra),
             coordinate: {
-                latitudine: parseFloat(coordinate.latitudine), // Converti in double
-                longitudine: parseFloat(coordinate.longitudine), // Converti in double
+                latitudine: parseFloat(coordinate.latitudine), 
+                longitudine: parseFloat(coordinate.longitudine), 
             },
             descrizione,
-            fotografie: foto, // Gli URL e i commenti delle immagini vengono direttamente dal frontend
+            fotografie: foto, 
         };
-        // Salva la perizia nel database
         const result = yield collection.insertOne(perizia);
         if (result.insertedId) {
             return res.status(200).json({ message: "Perizia caricata con successo.", periziaId: result.insertedId });
