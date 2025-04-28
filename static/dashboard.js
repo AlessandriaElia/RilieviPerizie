@@ -10,6 +10,37 @@ $(document).ready(function () {
         window.location.href = "/index.html";
     });
 
+    // Sezione Cambia Password
+    $("#changePasswordForm").on("submit", async function (e) {
+        e.preventDefault();
+
+        const currentPassword = $("#currentPassword").val();
+        const newPassword = $("#newPassword").val();
+        const confirmPassword = $("#confirmPassword").val();
+
+        if (newPassword !== confirmPassword) {
+            alert("La nuova password e la conferma non coincidono.");
+            return;
+        }
+
+        try {
+            const response = await inviaRichiesta("POST", "/api/cambia-password", {
+                currentPassword,
+                nuovaPassword: newPassword,
+            });
+
+            if (response.status === 200) {
+                alert(response.data.message || "Password aggiornata con successo.");
+                $("#changePasswordForm")[0].reset();
+            } else {
+                alert(response.err || "Errore durante l'aggiornamento della password.");
+            }
+        } catch (err) {
+            console.error("Errore durante il cambio della password:", err);
+            alert("Errore durante la richiesta.");
+        }
+    });
+
     // Funzione per ottenere le coordinate di un indirizzo
     async function getCoordinates(uriAddress) {
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=${uriAddress}`;

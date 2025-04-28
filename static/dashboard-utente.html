@@ -8,7 +8,19 @@
 </head>
 <body class="bg-light">
     <div class="container py-5">
-        <h1 class="text-center text-primary">Benvenuto nella Dashboard Utente</h1>
+        <h1 class="text-center text-primary">Utente puó accedere solo da telefono</h1>
+        <div class="text-center mt-4">
+            <button id="logoutButton" class="btn btn-danger">Logout</button>
+        </div>
     </div>
+
+    <script>
+        document.getElementById('logoutButton').addEventListener('click', () => {
+            localStorage.removeItem('jwtToken');
+            sessionStorage.removeItem('jwtToken');
+
+            window.location.href = '/index.html';
+        });
+    </script>
 </body>
 </html>

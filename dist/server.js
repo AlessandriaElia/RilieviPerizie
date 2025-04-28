@@ -21,6 +21,12 @@ const mongodb_1 = require("mongodb");
 const cors_1 = __importDefault(require("cors"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const cloudinary_1 = require("cloudinary");
+cloudinary_1.v2.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 // config
 dotenv_1.default.config({ path: ".env" });
 const app = (0, express_1.default)();
@@ -126,7 +132,15 @@ app.post("/api/login", (req, res) => __awaiter(void 0, void 0, void 0, function*
             return res.status(401).send("Password errata.");
         }
         const token = jsonwebtoken_1.default.sign({ id: user._id, nome: user.nome, cognome: user.cognome, email: user.email, ruolo: user.ruolo }, JWT_SECRET, { expiresIn: "1h" });
-        if (user.ruolo === "ADMIN") {
+        if (user.primo_accesso) {
+            return res.status(200).json({
+                token,
+                message: "Accesso effettuato con successo. Primo accesso.",
+                primo_accesso: true,
+                redirect: "/cambia-password.html",
+            });
+        }
+        else if (user.ruolo === "ADMIN") {
             return res.status(200).json({
                 token,
                 message: "Accesso effettuato con successo.",
@@ -134,22 +148,12 @@ app.post("/api/login", (req, res) => __awaiter(void 0, void 0, void 0, function*
             });
         }
         else if (user.ruolo === "USER") {
-            if (user.primo_accesso) {
-                return res.status(200).json({
-                    token,
-                    message: "Accesso effettuato con successo. Primo accesso.",
-                    primo_accesso: true,
-                    redirect: "/cambia-password.html",
-                });
-            }
-            else {
-                return res.status(200).json({
-                    token,
-                    message: "Accesso effettuato con successo.",
-                    primo_accesso: false,
-                    redirect: "/dashboard-utente.html",
-                });
-            }
+            return res.status(200).json({
+                token,
+                message: "Accesso effettuato con successo.",
+                primo_accesso: false,
+                redirect: "/dashboard-utente.html",
+            });
         }
         else {
             return res.status(403).send("Ruolo non riconosciuto.");
@@ -280,7 +284,7 @@ app.put("/api/updatePerizia/:codice_perizia", (req, res) => __awaiter(void 0, vo
 // POST /api/cambia-password
 app.post("/api/cambia-password", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
-    const { nuovaPassword } = req.body;
+    const { currentPassword, nuovaPassword } = req.body;
     const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(" ")[1];
     console.log("Token ricevuto:", token);
     console.log("Nuova password ricevuta:", nuovaPassword);
@@ -288,18 +292,44 @@ app.post("/api/cambia-password", (req, res) => __awaiter(void 0, void 0, void 0,
         return res.status(400).send("Tutti i campi sono obbligatori.");
     }
     try {
+        // Decodifica il token per ottenere l'ID dell'utente
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
         console.log("Token decodificato:", decoded);
         const client = new mongodb_1.MongoClient(CONNECTION_STRING);
         yield client.connect();
         const collection = client.db(DBNAME).collection("utenti");
+        // Recupera l'utente dal database
+        const user = yield collection.findOne({ _id: new mongodb_1.ObjectId(decoded.id) });
+        if (!user) {
+            return res.status(404).json({ message: "Utente non trovato." });
+        }
+        // Se l'utente è al primo accesso, bypassa il controllo della password attuale
+        if (user.primo_accesso) {
+            console.log("Primo accesso rilevato, bypassando il controllo della password attuale.");
+        }
+        else {
+            // Verifica che la password attuale sia corretta
+            if (!currentPassword) {
+                return res.status(400).json({ message: "La password attuale è obbligatoria." });
+            }
+            const isPasswordValid = yield bcryptjs_1.default.compare(currentPassword, user.password);
+            if (!isPasswordValid) {
+                return res.status(401).json({ message: "La password attuale non è corretta." });
+            }
+        }
+        // Validazione della nuova password (esempio: lunghezza minima di 8 caratteri)
+        if (nuovaPassword.length < 8) {
+            return res.status(400).json({ message: "La nuova password deve contenere almeno 8 caratteri." });
+        }
+        // Hash della nuova password
         const hashedPassword = yield bcryptjs_1.default.hash(nuovaPassword, 10);
+        // Aggiorna la password nel database
         const result = yield collection.updateOne({ _id: new mongodb_1.ObjectId(decoded.id) }, { $set: { password: hashedPassword, primo_accesso: false } });
         if (result.modifiedCount === 1) {
             return res.status(200).json({ message: "Password aggiornata con successo." });
         }
         else {
-            return res.status(404).json({ message: "Utente non trovato." });
+            return res.status(500).json({ message: "Errore durante l'aggiornamento della password." });
         }
     }
     catch (err) {
@@ -324,11 +354,18 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
         const collection = client.db(DBNAME).collection("perizie");
         // Genera un codice perizia univoco
         const codicePerizia = `PRZ-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
-        // Trasforma le foto in un array con Base64 e commenti
-        const fotografie = foto.map((f) => ({
-            base64: f.base64,
-            commento: f.commento,
-        }));
+        // Carica le immagini su Cloudinary
+        const fotografie = [];
+        for (const f of foto) {
+            const uploadResponse = yield cloudinary_1.v2.uploader.upload(f.base64, {
+                folder: "perizie",
+                resource_type: "image",
+            });
+            fotografie.push({
+                url: uploadResponse.secure_url,
+                commento: f.commento,
+            });
+        }
         // Crea il documento della perizia
         const perizia = {
             codice_perizia: codicePerizia,
