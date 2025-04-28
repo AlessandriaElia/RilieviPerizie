@@ -342,6 +342,7 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
     var _a;
     const { descrizione, foto, coordinate, dataOra, codiceOperatore } = req.body;
     const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(" ")[1];
+    // Verifica che tutti i campi obbligatori siano presenti
     if (!descrizione || !foto || foto.length === 0 || !coordinate || !dataOra || !codiceOperatore || !token) {
         return res.status(400).send("Tutti i campi sono obbligatori.");
     }
@@ -354,19 +355,7 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
         const collection = client.db(DBNAME).collection("perizie");
         // Genera un codice perizia univoco
         const codicePerizia = `PRZ-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
-        // Carica le immagini su Cloudinary
-        const fotografie = [];
-        for (const f of foto) {
-            const uploadResponse = yield cloudinary_1.v2.uploader.upload(f.base64, {
-                folder: "perizie",
-                resource_type: "image",
-            });
-            fotografie.push({
-                url: uploadResponse.secure_url,
-                commento: f.commento,
-            });
-        }
-        // Crea il documento della perizia
+        // Prepara il documento della perizia
         const perizia = {
             codice_perizia: codicePerizia,
             operatore_id: new mongodb_1.ObjectId(decoded.id), // ID dell'operatore dal token
@@ -376,7 +365,7 @@ app.post("/api/upload-perizia", (req, res) => __awaiter(void 0, void 0, void 0, 
                 longitudine: parseFloat(coordinate.longitudine), // Converti in double
             },
             descrizione,
-            fotografie,
+            fotografie: foto, // Gli URL e i commenti delle immagini vengono direttamente dal frontend
         };
         // Salva la perizia nel database
         const result = yield collection.insertOne(perizia);
