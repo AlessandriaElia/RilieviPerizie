@@ -69,11 +69,11 @@ Consentire a un’azienda di archiviare in tempo reale su un server le fotografi
 - Per debug su device: `adb logcat`.
 
 ## Immagini
-![Dashboard Admin](https://example.com/path/to/your/image.jpg)
+![Dashboard Admin]([https://example.com/path/to/your/image.jpg](https://github.com/AlessandriaElia/RilieviPerizie/blob/main/dashboardAdmin.jpg))
 
 Dashboard Admin.
 
-![Dashboard Utente](https://example.com/path/to/your/image.jpg)
+![Dashboard Utente]([https://example.com/path/to/your/image.jpg](https://github.com/AlessandriaElia/RilieviPerizie/blob/main/dashboardUtente.jpeg))
 
 Dashboard Utente.
 ---
