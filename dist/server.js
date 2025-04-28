@@ -232,6 +232,7 @@ app.get("/api/getPerizie", (req, res) => __awaiter(void 0, void 0, void 0, funct
             query = { operatore_id: new mongodb_1.ObjectId(userId) };
         }
         const perizie = yield collection.find(query).toArray();
+        console.log("Perizie inviate al client:", perizie); // Log per debug
         res.status(200).json(perizie);
     }
     catch (err) {
@@ -262,8 +263,8 @@ app.put("/api/updatePerizia/:codice_perizia", (req, res) => __awaiter(void 0, vo
         const updatedFotografie = fotografie.map((foto, index) => {
             const existingFoto = existingPerizia.fotografie[index];
             return {
-                base64: foto.base64 || (existingFoto ? existingFoto.base64 : null),
-                commento: foto.commento,
+                url: foto.url || (existingFoto ? existingFoto.url : null), // Mantieni l'URL esistente se non fornito
+                commento: foto.commento || (existingFoto ? existingFoto.commento : ""), // Mantieni il commento esistente se non fornito
             };
         });
         // Aggiorna la perizia

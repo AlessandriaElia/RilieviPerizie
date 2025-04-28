@@ -59,9 +59,16 @@
             </div>
 
             <!-- Mappa -->
-            <div class="col-md-6">
-                <div id="map" style="width: 100%; height: 500px; border: 1px solid #ddd;"></div>
-            </div>
+<div class="col-md-6">
+    <div class="mb-4">
+        <label for="userFilter" class="form-label">Filtra per utente:</label>
+        <select id="userFilter" class="form-select">
+            <option value="ALL">Tutti</option>
+            <!-- Gli utenti verranno caricati dinamicamente -->
+        </select>
+    </div>
+    <div id="map" style="width: 100%; height: 500px; border: 1px solid #ddd;"></div>
+</div>
 
             <!-- Sezione Cambia Password -->
             <div class="col-md-3">

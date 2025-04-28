@@ -246,6 +246,7 @@ app.get("/api/getPerizie", async (req: Request, res: Response) => {
       }
 
       const perizie = await collection.find(query).toArray();
+      console.log("Perizie inviate al client:", perizie); // Log per debug
       res.status(200).json(perizie); 
   } catch (err) {
       console.error("Errore durante il caricamento delle perizie:", err);
@@ -276,11 +277,11 @@ app.put("/api/updatePerizia/:codice_perizia", async (req: Request, res: Response
     }
 
     // Combina i dati esistenti con quelli nuovi
-    const updatedFotografie = fotografie.map((foto: { base64?: string; commento: string }, index: number) => {
+    const updatedFotografie = fotografie.map((foto: { url: string; commento: string }, index: number) => {
       const existingFoto = existingPerizia.fotografie[index];
       return {
-        base64: foto.base64 || (existingFoto ? existingFoto.base64 : null),
-        commento: foto.commento,
+        url: foto.url || (existingFoto ? existingFoto.url : null), // Mantieni l'URL esistente se non fornito
+        commento: foto.commento || (existingFoto ? existingFoto.commento : ""), // Mantieni il commento esistente se non fornito
       };
     });
 

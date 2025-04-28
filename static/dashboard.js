@@ -151,39 +151,39 @@ $(document).ready(function () {
         }
     }
     // Funzione per creare il contenuto del popup
-    function createPopupContent(perizia) {
-        const { codice_perizia, descrizione, fotografie } = perizia;
-    
-        let content = `
-        <div>
-            <h4>Perizia: ${codice_perizia}</h4>
-            <h5>Modifica descrizione:</h5>
-            <textarea id="descrizione" style="width: 100%; margin-bottom: 10px;">${descrizione}</textarea>
-            <h5>Fotografie:</h5>
-            <ul>
-        `;
-    
-        fotografie.forEach((foto, index) => {
-            content += `
-            <li>
-                <img src="${foto.base64}" alt="Foto" style="width: 100px; height: auto;" />
-                <textarea id="commento-${index}" style="width: 100%; margin-top: 5px;">${foto.commento}</textarea>
-            </li>
-            `;
-        });
-    
+function createPopupContent(perizia) {
+    const { codice_perizia, descrizione, fotografie } = perizia;
+
+    let content = `
+    <div>
+        <h4>Perizia: ${codice_perizia}</h4>
+        <h5>Modifica descrizione:</h5>
+        <textarea id="descrizione" style="width: 100%; margin-bottom: 10px;">${descrizione}</textarea>
+        <h5>Fotografie:</h5>
+        <ul>
+    `;
+
+    fotografie.forEach((foto, index) => {
         content += `
-            </ul>
-            <button id="salvaModifiche" 
-                data-codice="${codice_perizia}" 
-                data-fotografie='${JSON.stringify(fotografie)}'>
-                Salva Modifiche
-            </button>
-        </div>
+        <li>
+            <img src="${foto.url}" alt="Foto" style="width: 100px; height: auto;" />
+            <textarea id="commento-${index}" style="width: 100%; margin-top: 5px;">${foto.commento}</textarea>
+        </li>
         `;
-    
-        return content;
-    }
+    });
+
+    content += `
+        </ul>
+        <button id="salvaModifiche" 
+            data-codice="${codice_perizia}" 
+            data-fotografie='${JSON.stringify(fotografie)}'>
+            Salva Modifiche
+        </button>
+    </div>
+    `;
+
+    return content;
+}
     $(document).on("click", "#salvaModifiche", async function () {
         const codicePerizia = $(this).data("codice");
         const fotografie = $(this).data("fotografie");
